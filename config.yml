@@ -41,4 +41,4 @@ single_agent_tool: generic
 # ~/.agent-os/scripts/project-install.sh --profile [profile-name]
 # ================================================
 
-profile: default
+profile: laravel
