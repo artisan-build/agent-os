@@ -1,0 +1,552 @@
+# Step 3: Create Remediation Specification
+
+You are creating a comprehensive specification document that details the manual work required to bring the legacy project up to modern Laravel development standards, focusing on issues that remain AFTER automatic fixes have been applied.
+
+## Create Spec Folder
+
+Determine today's date and create a new spec folder:
+
+```
+agent-os/specs/YYYY-MM-DD-legacy-modernization/
+```
+
+Create these subdirectories:
+```
+agent-os/specs/YYYY-MM-DD-legacy-modernization/
+├── analysis/
+```
+
+## Create File 1: spec.md
+
+Create `agent-os/specs/YYYY-MM-DD-legacy-modernization/spec.md` using the template below.
+
+Populate it with your analysis from Step 2, focusing on:
+- What was automatically fixed (for context)
+- What remains to be fixed manually (the actual work)
+
+```markdown
+# Legacy Project Modernization Specification
+
+> Created: [CURRENT_DATE]
+> Status: Planning
+
+## Overview
+
+This specification outlines the remaining work required to bring this legacy Laravel project up to modern development standards after automatic fixes have been applied.
+
+### What Was Automatically Fixed
+
+The `composer report` command automatically applied these fixes:
+- **Rector**: [COUNT] refactorings (imports, modernizations, etc.)
+- **Duster**: [COUNT] Laravel convention fixes
+- **IDE Helper**: Model docblocks generated for [COUNT] models
+
+These changes are already applied to the codebase and committed.
+
+### What Remains
+
+After automatic fixes, [TOTAL_COUNT] issues remain that require manual intervention:
+- Security vulnerabilities: [COUNT]
+- PHPStan errors: [COUNT]
+- Test failures: [COUNT]
+
+### Goal
+
+Ensure the following command runs successfully with zero errors:
+```bash
+composer report
+```
+
+## Automatic Fixes Applied
+
+### Rector Refactorings
+[DESCRIBE WHAT RECTOR CHANGED]
+
+Files modified: [LIST KEY FILES]
+
+Changes included:
+- Import statement optimizations
+- Code modernizations
+- Pattern updates
+
+### Duster Laravel Convention Fixes
+[DESCRIBE WHAT DUSTER CHANGED]
+
+Files modified: [LIST KEY FILES]
+
+Changes included:
+- Laravel convention compliance
+- Code style improvements
+
+### IDE Helper Model Docblocks
+[DESCRIBE WHAT WAS GENERATED]
+
+Models updated: [LIST MODELS]
+
+Generated annotations for:
+- Model properties
+- Relationships
+- Scopes
+
+## Remaining Issues Analysis
+
+### Security Vulnerabilities: [COUNT]
+
+[DESCRIBE EACH VULNERABILITY]
+
+**Package**: [package-name] [current-version]
+**Vulnerability**: [description]
+**CVE**: [reference if available]
+**Required Action**: Upgrade to [version] or [alternative solution]
+**Impact if not fixed**: [description]
+**Breaking Changes**: [yes/no - describe if yes]
+
+### PHPStan Errors: [COUNT]
+
+**Total errors at Level 6**: [COUNT]
+
+**Incremental Error Counts by Level**:
+- Level 0: [count] errors
+- Level 1: [count] errors
+- Level 2: [count] errors
+- Level 3: [count] errors
+- Level 4: [count] errors
+- Level 5: [count] errors
+- Level 6: [count] errors
+
+**Top 10 Problem Files** (across all levels):
+1. [file path] - [error count] errors
+2. [file path] - [error count] errors
+[...continue...]
+
+**Common Error Patterns**:
+- [Pattern description] - occurs in [count] places at Level [X]
+  Example: [specific error message]
+
+- [Pattern description] - occurs in [count] places at Level [X]
+  Example: [specific error message]
+
+**Categories of Fixes Needed**:
+1. Missing type declarations on methods - [count]
+2. Ambiguous return types - [count]
+3. Complex types needing PHPDoc (array shapes, collections) - [count]
+4. Logic unclear to static analysis - [count]
+
+**Note**: Model property access should already work via generated docblocks. These errors are in application logic that needs type clarification.
+
+### Test Failures: [COUNT]
+
+**Total failing tests**: [COUNT]
+
+**Failure Categories**:
+- Tests affected by Rector refactorings - [count]
+- Tests affected by Duster changes - [count]
+- Tests that found actual bugs - [count]
+- Test infrastructure issues - [count]
+
+**Examples**:
+1. [Test name]
+   - Failure reason: [description]
+   - Root cause: [Rector change / actual bug / etc.]
+   - Fix approach: [update test / fix code / etc.]
+
+## Spec Scope
+
+What this spec will address:
+
+1. **Security Vulnerabilities** - Upgrade or replace vulnerable dependencies
+2. **Type Safety (Incremental)** - Fix PHPStan errors level-by-level (0→6) through:
+   - Adding missing type declarations
+   - Adding specific PHPDoc for complex types
+   - Clarifying ambiguous code patterns
+   - Each level must pass completely before moving to the next
+3. **Test Suite** - Fix all failing tests
+4. **Verification** - Ensure `composer report` completes successfully
+
+## Out of Scope
+
+- Code style issues (already fixed by Duster/Pint)
+- Missing declare(strict_types) (already added by Pint)
+- Basic refactorings (already applied by Rector)
+- Model docblocks (already generated by IDE Helper)
+- Additional improvements not surfaced by the tools
+
+## Success Criteria
+
+The following must all be true:
+
+- [ ] `composer report` completes successfully
+- [ ] No security vulnerabilities reported
+- [ ] PHPStan Level 6 analysis passes with zero errors
+- [ ] All tests in the test suite pass
+- [ ] Application runs without errors
+- [ ] No critical functionality has been broken
+
+## Implementation Strategy
+
+### Recommended Phase Order
+
+**Phase 1: Security Vulnerabilities**
+Address all security vulnerabilities first. Update or replace vulnerable dependencies.
+Estimated effort: [time]
+
+**Phase 2: PHPStan Level 0**
+Fix all PHPStan errors at Level 0 (most critical issues).
+Run `composer stan -- --level=0` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 3: PHPStan Level 1**
+Fix all PHPStan errors at Level 1.
+Run `composer stan -- --level=1` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 4: PHPStan Level 2**
+Fix all PHPStan errors at Level 2.
+Run `composer stan -- --level=2` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 5: PHPStan Level 3**
+Fix all PHPStan errors at Level 3.
+Run `composer stan -- --level=3` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 6: PHPStan Level 4**
+Fix all PHPStan errors at Level 4.
+Run `composer stan -- --level=4` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 7: PHPStan Level 5**
+Fix all PHPStan errors at Level 5.
+Run `composer stan -- --level=5` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 8: PHPStan Level 6**
+Fix all PHPStan errors at Level 6 (strictest level).
+Run `composer stan -- --level=6` to verify this level passes.
+Estimated effort: [time]
+
+**Phase 9: Test Suite**
+Fix all failing tests:
+- Update tests affected by refactorings
+- Fix tests that found real bugs
+- Address test infrastructure issues
+Estimated effort: [time]
+
+**Phase 10: Final Verification**
+Run `composer report` and verify everything passes.
+Estimated effort: [time]
+
+**Total estimated effort**: [total time]
+
+### Testing Strategy
+
+- Run `composer stan -- --level=X` after completing each PHPStan level to verify it passes
+- Run `composer report` after each phase to track overall progress
+- Run the test suite after each significant change
+- Test critical user paths manually after fixing PHPStan errors in business logic
+- Monitor for regressions
+
+## Risk Assessment
+
+### High-Risk Changes
+
+Files requiring careful attention:
+- Files with PHPStan errors in critical business logic
+- Core models with complex relationships
+- Controllers handling financial or sensitive operations
+- Services with external integrations
+
+[LIST SPECIFIC HIGH-RISK FILES FROM YOUR ANALYSIS]
+
+**Recommended mitigation**:
+- Extra manual testing for these areas
+- Deploy to staging first
+- Consider phased rollout
+- Have rollback plan ready
+
+### Rollback Strategy
+
+- Each phase should be in its own PR
+- Tag releases before each merge
+- Keep detailed notes on changes made
+- Maintain ability to revert per-phase
+```
+
+## Create File 2: tasks.md
+
+Create `agent-os/specs/YYYY-MM-DD-legacy-modernization/tasks.md`:
+
+```markdown
+# Legacy Modernization Tasks
+
+This is the detailed task breakdown for fixing issues that remain after automatic fixes. Complete these tasks in order.
+
+## Understanding What Was Automatically Fixed
+
+Before starting manual fixes, review what was automatically corrected:
+- [ ] Review Rector changes from composer report output
+- [ ] Review Duster changes from composer report output
+- [ ] Verify model docblocks were generated
+- [ ] Understand baseline for remaining work
+
+## Phase 1: Security Vulnerabilities
+
+- [ ] 1.1 Document all vulnerable dependencies
+- [ ] 1.2 Research upgrade paths for each vulnerability
+- [ ] 1.3 Test dependency upgrades in isolation
+- [ ] 1.4 Update composer.json with fixed versions
+- [ ] 1.5 Run composer update
+- [ ] 1.6 Test affected functionality
+- [ ] 1.7 Verify security check passes
+- [ ] 1.8 Run full test suite
+
+## Phase 2: PHPStan Level 0
+
+- [ ] 2.1 Review errors at Level 0: `composer stan -- --level=0`
+- [ ] 2.2 Categorize Level 0 errors by type
+- [ ] 2.3 Fix undefined variable errors
+- [ ] 2.4 Fix undefined method calls
+- [ ] 2.5 Fix other critical Level 0 issues
+- [ ] 2.6 Run tests for affected areas
+- [ ] 2.7 Verify Level 0 passes: `composer stan -- --level=0`
+
+## Phase 3: PHPStan Level 1
+
+- [ ] 3.1 Review errors at Level 1: `composer stan -- --level=1`
+- [ ] 3.2 Fix unknown class references
+- [ ] 3.3 Fix method signature issues
+- [ ] 3.4 Run tests for affected areas
+- [ ] 3.5 Verify Level 1 passes: `composer stan -- --level=1`
+
+## Phase 4: PHPStan Level 2
+
+- [ ] 4.1 Review errors at Level 2: `composer stan -- --level=2`
+- [ ] 4.2 Fix unknown property accesses
+- [ ] 4.3 Fix method return type issues
+- [ ] 4.4 Run tests for affected areas
+- [ ] 4.5 Verify Level 2 passes: `composer stan -- --level=2`
+
+## Phase 5: PHPStan Level 3
+
+- [ ] 5.1 Review errors at Level 3: `composer stan -- --level=3`
+- [ ] 5.2 Add missing return types
+- [ ] 5.3 Fix parameter type issues
+- [ ] 5.4 Run tests for affected areas
+- [ ] 5.5 Verify Level 3 passes: `composer stan -- --level=3`
+
+## Phase 6: PHPStan Level 4
+
+- [ ] 6.1 Review errors at Level 4: `composer stan -- --level=4`
+- [ ] 6.2 Fix dead code issues
+- [ ] 6.3 Fix unreachable code
+- [ ] 6.4 Run tests for affected areas
+- [ ] 6.5 Verify Level 4 passes: `composer stan -- --level=4`
+
+## Phase 7: PHPStan Level 5
+
+- [ ] 7.1 Review errors at Level 5: `composer stan -- --level=5`
+- [ ] 7.2 Fix argument type compatibility issues
+- [ ] 7.3 Fix return type compatibility issues
+- [ ] 7.4 Run tests for affected areas
+- [ ] 7.5 Verify Level 5 passes: `composer stan -- --level=5`
+
+## Phase 8: PHPStan Level 6
+
+- [ ] 8.1 Review errors at Level 6: `composer stan -- --level=6`
+- [ ] 8.2 Add specific PHPDoc for complex types (array shapes, collections)
+- [ ] 8.3 Fix remaining type ambiguities
+- [ ] 8.4 Run tests for affected areas
+- [ ] 8.5 Verify Level 6 passes: `composer stan -- --level=6`
+
+## Phase 9: Test Suite
+
+- [ ] 9.1 Document all currently failing tests
+- [ ] 9.2 Fix tests affected by Rector refactorings
+- [ ] 9.3 Fix tests affected by Duster changes
+- [ ] 9.4 Fix tests that found real bugs (surfaced by type improvements)
+- [ ] 9.5 Address test infrastructure issues
+- [ ] 9.6 Verify full test suite passes
+- [ ] 9.7 Run `composer test` to confirm
+
+## Phase 10: Final Verification
+
+- [ ] 10.1 Run `composer report` - must complete successfully
+- [ ] 10.2 Verify no security vulnerabilities
+- [ ] 10.3 Verify PHPStan Level 6 passes
+- [ ] 10.4 Verify all tests pass
+- [ ] 10.5 Manually test critical user paths
+- [ ] 10.6 Verify application runs without errors
+- [ ] 10.7 Document any remaining warnings (not errors)
+- [ ] 10.8 Create summary of work completed
+
+## Post-Implementation
+
+- [ ] Deploy to staging environment
+- [ ] Run smoke tests on staging
+- [ ] Monitor for any issues
+- [ ] Create PR for production deployment
+- [ ] Document lessons learned
+```
+
+Adjust the task breakdown based on your analysis. Add more granular tasks where the issue volume requires it.
+
+## Create File 3: analysis/composer-report-output.md
+
+Create `agent-os/specs/YYYY-MM-DD-legacy-modernization/analysis/composer-report-output.md`:
+
+```markdown
+# Composer Report Output
+
+Generated: [CURRENT_DATE]
+Command: `composer report`
+
+## Full Command Output
+
+[PASTE COMPLETE COMPOSER REPORT OUTPUT HERE]
+
+## Summary Statistics
+
+**Automatic Fixes Applied:**
+- Rector refactorings: [count] changes in [count] files
+- Duster fixes: [count] changes in [count] files
+- Model docblocks: [count] models updated
+- IDE helper files: generated
+
+**Remaining Issues:**
+- Security vulnerabilities: [count]
+- PHPStan errors: [count]
+- Test failures: [count]
+
+## Files Modified by Automatic Tools
+
+### Rector Changes
+[LIST FILES MODIFIED BY RECTOR WITH BRIEF DESCRIPTION OF CHANGES]
+
+### Duster Changes
+[LIST FILES MODIFIED BY DUSTER WITH BRIEF DESCRIPTION OF CHANGES]
+
+### Model Docblocks Generated
+[LIST MODELS THAT HAD DOCBLOCKS GENERATED]
+
+## Remaining Issues Breakdown
+
+### Security Vulnerabilities
+[PASTE SECURITY ADVISORY OUTPUT]
+
+**Summary**:
+- [vulnerability 1 summary]
+- [vulnerability 2 summary]
+
+### PHPStan Errors
+[PASTE PHPSTAN LEVEL 6 OUTPUT]
+
+**Error Breakdown by Level**:
+
+Run these commands to get counts at each level:
+- Level 0: `composer stan -- --level=0` - [count] errors
+- Level 1: `composer stan -- --level=1` - [count] errors
+- Level 2: `composer stan -- --level=2` - [count] errors
+- Level 3: `composer stan -- --level=3` - [count] errors
+- Level 4: `composer stan -- --level=4` - [count] errors
+- Level 5: `composer stan -- --level=5` - [count] errors
+- Level 6: `composer stan -- --level=6` - [count] errors (already run)
+
+**Common error patterns**:
+- [Pattern 1] - occurs in [count] places at Level [X]
+  Files affected: [list key files]
+
+- [Pattern 2] - occurs in [count] places at Level [X]
+  Files affected: [list key files]
+
+**Files with most errors** (across all levels):
+1. [file path] - [error count] errors
+2. [file path] - [error count] errors
+3. [file path] - [error count] errors
+[continue for top 10]
+
+### Test Failures
+[PASTE TEST FAILURE OUTPUT]
+
+**Failure categories**:
+- [Category 1] - [count] tests
+  Cause: [description]
+
+- [Category 2] - [count] tests
+  Cause: [description]
+
+## Implementation Notes
+
+- Automatic fixes have already been applied and should be reviewed
+- Focus manual effort on remaining PHPStan errors and test failures
+- Security vulnerabilities are highest priority
+- Test thoroughly after PHPStan fixes (they may reveal bugs)
+- Some test failures may actually be bugs surfaced by better type safety
+```
+
+## Display Results
+
+Once all three files are created, display to the user:
+
+```
+✓ Legacy project specification created!
+
+## Files Created
+
+- agent-os/specs/YYYY-MM-DD-legacy-modernization/spec.md
+- agent-os/specs/YYYY-MM-DD-legacy-modernization/tasks.md
+- agent-os/specs/YYYY-MM-DD-legacy-modernization/analysis/composer-report-output.md
+
+## Summary
+
+Automatic fixes applied by composer report:
+- Rector refactorings: [count]
+- Duster convention fixes: [count]
+- Model docblocks generated: [count] models
+
+Remaining issues requiring manual intervention:
+- Security vulnerabilities: [count]
+- PHPStan errors by level (0-6): [list counts]
+- Test failures: [count]
+
+Estimated effort: [time estimate]
+
+## Implementation Strategy
+
+The spec uses a 10-phase incremental approach:
+- Phase 1: Security Vulnerabilities
+- Phases 2-8: PHPStan Levels 0→6 (incremental)
+- Phase 9: Test Suite
+- Phase 10: Final Verification
+
+Each PHPStan level must pass completely before moving to the next.
+
+## Next Steps
+
+1. Review the specification at agent-os/specs/YYYY-MM-DD-legacy-modernization/spec.md
+2. Note that Rector and Duster have already applied automatic fixes
+3. The remaining issues require manual code changes
+4. When ready to begin implementation:
+   - Start with Phase 1 (Security Vulnerabilities) from tasks.md
+   - Work through each PHPStan level sequentially (Phases 2-8)
+   - Run `composer stan -- --level=X` after each level to verify it passes
+   - Run `composer report` after each phase to track overall progress
+   - Create a PR per phase for easier review
+
+## Important Reminders
+
+- Automatic fixes (Rector, Duster, docblocks) are already applied
+- The spec focuses on remaining issues that need manual attention
+- PHPStan errors may indicate real bugs that need fixing
+- Test failures may be legitimate bugs surfaced by type safety improvements
+- After all phases complete, `composer report` must run cleanly
+
+Ready to begin when you are!
+```
+
+## Standards Reference
+
+Follow these standards while creating the specification:
+
+{{standards/global/*}}
+{{standards/backend/*}}
+{{standards/testing/*}}
