@@ -17,16 +17,12 @@ cat agent-os/specs/[current-spec]/planning/requirements.md
 
 # Check for visual assets
 ls -la agent-os/specs/[current-spec]/planning/visuals/ 2>/dev/null | grep -v "^total" | grep -v "^d"
-
-# Read the agent registry to know available subagents
-cat agent-os/agents-registry.yml
 ```
 
 Parse and analyze:
 - User's feature description and goals
 - Requirements gathered by spec-researcher
 - Visual mockups or screenshots (if present)
-- Available subagents in the registry (if present)
 - Any constraints or out-of-scope items mentioned
 
 ### Step 2: Search for Reusable Code
@@ -52,7 +48,9 @@ Document your findings for use in the specification.
 
 Write the main specification to `agent-os/specs/[current-spec]/spec.md`.
 
-Do not write actual code in the spec.md document. Just describe the requirements clearly and concisely.
+DO NOT write actual code in the spec.md document. Just describe the requirements clearly and concisely.
+
+Keep it short and include only essential information for each section.
 
 Follow this structure exactly when creating the content of `spec.md`:
 
@@ -67,15 +65,9 @@ Follow this structure exactly when creating the content of `spec.md`:
 - [Additional stories based on requirements]
 
 ## Core Requirements
-### Functional Requirements
 - [User-facing capability]
 - [What users can do]
 - [Key features to implement]
-
-### Non-Functional Requirements
-- [Performance requirements]
-- [Accessibility standards]
-- [Security considerations]
 
 ## Visual Design
 [If mockups provided]
@@ -94,10 +86,7 @@ Follow this structure exactly when creating the content of `spec.md`:
 - [Why it can't reuse existing code]
 
 ## Technical Approach
-- Database: [Models and relationships needed]
-- API: [Endpoints and data flow]
-- Frontend: [UI components and interactions]
-- Testing: [Test coverage requirements]
+- [Briefly describe specific technical notes to ensure alignment with requirements.md]
 
 ## Out of Scope
 - [Features not being built now]
@@ -114,6 +103,6 @@ Follow this structure exactly when creating the content of `spec.md`:
 
 1. **Always search for reusable code** before specifying new components
 2. **Reference visual assets** when available
-3. **Do not write actual code** in the spec
+3. **Do NOT write actual code** in the spec
 4. **Keep each section short**, with clear, direct, skimmable specifications
 5. **Document WHY new code is needed** if can't reuse existing

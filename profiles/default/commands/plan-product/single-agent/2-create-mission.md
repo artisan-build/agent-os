@@ -2,6 +2,7 @@ Now that you've gathered information about this product, use that info to create
 
 {{workflows/planning/create-product-mission}}
 
+{{UNLESS compiled_single_command}}
 ## Display confirmation and next step
 
 Once you've created mission.md, output the following message:
@@ -11,11 +12,14 @@ Once you've created mission.md, output the following message:
 
 Review it to ensure it matches your vision and strategic goals for this product.
 
-Next step: Run the command, `3-create-roadmap.md`
+NEXT STEP 👉 Run the command, `3-create-roadmap.md`
 ```
+{{ENDUNLESS compiled_single_command}}
 
+{{UNLESS standards_as_claude_code_skills}}
 ## User Standards & Preferences Compliance
 
 IMPORTANT: Ensure the product mission is ALIGNED and DOES NOT CONFLICT with the user's preferences and standards as detailed in the following files:
 
 {{standards/global/*}}
+{{ENDUNLESS standards_as_claude_code_skills}}

@@ -202,225 +202,6 @@ get_yaml_array() {
     ' "$file"
 }
 
-# Parse role data from YAML with robust handling
-parse_role_yaml() {
-    local yaml_file=$1
-    local role_type=$2  # "implementers" or "verifiers"
-    local role_id=$3
-    local field=$4
-
-    if [[ ! -f "$yaml_file" ]]; then
-        return
-    fi
-
-    awk -v role_type="$role_type" -v role_id="$role_id" -v field="$field" '
-        BEGIN {
-            in_roles=0
-            in_role=0
-            in_field=0
-            is_array=0
-            roles_indent=-1
-            role_indent=-1
-            field_indent=-1
-            array_indent=-1
-        }
-        {
-            # Normalize tabs to spaces
-            gsub(/\t/, "    ")
-
-            # Calculate indentation
-            indent = match($0, /[^ ]/)
-            if (indent == 0) indent = length($0) + 1
-            indent = indent - 1
-
-            # Store trimmed line
-            trimmed = $0
-            gsub(/^[[:space:]]+/, "", trimmed)
-            gsub(/[[:space:]]+$/, "", trimmed)
-        }
-
-        # Find role type section
-        !in_roles && trimmed ~ "^" role_type "[[:space:]]*:" {
-            in_roles = 1
-            roles_indent = indent
-            next
-        }
-
-        # Exit roles section if we hit something at same or lesser indent
-        in_roles && !in_role && indent <= roles_indent && trimmed != "" {
-            in_roles = 0
-        }
-
-        # Find specific role by id
-        in_roles && trimmed ~ /^-[[:space:]]+id:[[:space:]]*/ {
-            id_value = trimmed
-            sub(/^-[[:space:]]+id:[[:space:]]*/, "", id_value)
-            gsub(/^["'\'']/, "", id_value)
-            gsub(/["'\'']$/, "", id_value)
-
-            if (id_value == role_id) {
-                in_role = 1
-                role_indent = indent
-            } else {
-                in_role = 0
-            }
-            next
-        }
-
-        # Exit current role if we hit another role or leave roles section
-        in_role && trimmed ~ /^-[[:space:]]+/ && indent == role_indent {
-            in_role = 0
-        }
-
-        # Look for the field we want
-        in_role && trimmed ~ "^" field "[[:space:]]*:" {
-            in_field = 1
-            field_indent = indent
-
-            # Check if value is on same line
-            value = trimmed
-            sub("^" field "[[:space:]]*:[[:space:]]*", "", value)
-
-            if (value != "") {
-                # Single line value
-                gsub(/^["'\'']/, "", value)
-                gsub(/["'\'']$/, "", value)
-                print value
-                in_field = 0
-            } else {
-                # Multi-line array expected
-                is_array = 1
-            }
-            next
-        }
-
-        # Process array items
-        in_field && is_array {
-            # Stop if we hit something at field level or less
-            if (indent <= field_indent && trimmed != "") {
-                in_field = 0
-                is_array = 0
-                next
-            }
-
-            # Process array items
-            if (trimmed ~ /^-[[:space:]]/) {
-                if (array_indent == -1) {
-                    array_indent = indent
-                }
-
-                if (indent == array_indent) {
-                    item = trimmed
-                    sub(/^-[[:space:]]*/, "", item)
-                    gsub(/^["'\'']/, "", item)
-                    gsub(/["'\'']$/, "", item)
-                    # Add bullet point formatting for lists
-                    if (field == "areas_of_responsibility" || field == "example_areas_outside_of_responsibility") {
-                        print "- " item
-                    } else {
-                        print item
-                    }
-                }
-            }
-        }
-    ' "$yaml_file"
-}
-
-# Get standards configuration for a role with robust parsing
-# Now supports flexible flat list format instead of hardcoded global/capabilities/patterns
-get_role_standards() {
-    local yaml_file=$1
-    local role_type=$2
-    local role_id=$3
-
-    if [[ ! -f "$yaml_file" ]]; then
-        return
-    fi
-
-    awk -v role_type="$role_type" -v role_id="$role_id" '
-        BEGIN {
-            in_roles=0
-            in_role=0
-            in_standards=0
-            roles_indent=-1
-            role_indent=-1
-            standards_indent=-1
-        }
-        {
-            # Normalize tabs to spaces
-            gsub(/\t/, "    ")
-
-            # Calculate indentation
-            indent = match($0, /[^ ]/)
-            if (indent == 0) indent = length($0) + 1
-            indent = indent - 1
-
-            # Store trimmed line
-            trimmed = $0
-            gsub(/^[[:space:]]+/, "", trimmed)
-            gsub(/[[:space:]]+$/, "", trimmed)
-        }
-
-        # Find role type section
-        !in_roles && trimmed ~ "^" role_type "[[:space:]]*:" {
-            in_roles = 1
-            roles_indent = indent
-            next
-        }
-
-        # Exit roles section
-        in_roles && !in_role && indent <= roles_indent && trimmed != "" {
-            in_roles = 0
-        }
-
-        # Find specific role
-        in_roles && trimmed ~ /^-[[:space:]]+id:[[:space:]]*/ {
-            id_value = trimmed
-            sub(/^-[[:space:]]+id:[[:space:]]*/, "", id_value)
-            gsub(/["'\'']/, "", id_value)
-
-            if (id_value == role_id) {
-                in_role = 1
-                role_indent = indent
-            } else {
-                in_role = 0
-                in_standards = 0
-            }
-            next
-        }
-
-        # Exit role if we hit another role
-        in_role && trimmed ~ /^-[[:space:]]+/ && indent == role_indent {
-            in_role = 0
-            in_standards = 0
-        }
-
-        # Find standards section
-        in_role && trimmed ~ /^standards[[:space:]]*:/ {
-            in_standards = 1
-            standards_indent = indent
-            next
-        }
-
-        # Exit standards section if we hit something at same or lesser indent
-        in_standards && indent <= standards_indent && trimmed != "" && trimmed !~ /^-/ {
-            in_standards = 0
-        }
-
-        # Process standards entries - now just a simple flat list
-        in_standards && trimmed ~ /^-[[:space:]]/ {
-            item = trimmed
-            sub(/^-[[:space:]]*/, "", item)
-            gsub(/^["'\'']/, "", item)
-            gsub(/["'\'']$/, "", item)
-            if (item != "") {
-                print item
-            }
-            next
-        }
-    ' "$yaml_file"
-}
-
 # -----------------------------------------------------------------------------
 # File Operations Functions
 # -----------------------------------------------------------------------------
@@ -689,6 +470,140 @@ replace_playwright_tools() {
     echo "$tools" | sed "s/Playwright/$playwright_tools/g"
 }
 
+# Process conditional compilation tags ({{IF}}, {{UNLESS}}, {{ENDIF}}, {{ENDUNLESS}})
+# Ignores {{orchestrated_standards}} and other placeholders
+process_conditionals() {
+    local content=$1
+    local use_claude_code_subagents=$2
+    local standards_as_claude_code_skills=$3
+    local compiled_single_command=${4:-"false"}  # Default to false if not provided
+
+    local result=""
+    local nesting_level=0
+    local should_include=true
+    local stack_should_include=()
+
+    while IFS= read -r line; do
+        # Check for IF tags
+        if [[ "$line" =~ \{\{IF[[:space:]]+([a-z_]+)\}\} ]]; then
+            local flag_name="${BASH_REMATCH[1]}"
+
+            # Evaluate condition
+            local condition_met=false
+            case "$flag_name" in
+                "use_claude_code_subagents")
+                    [[ "$use_claude_code_subagents" == "true" ]] && condition_met=true
+                    ;;
+                "standards_as_claude_code_skills")
+                    [[ "$standards_as_claude_code_skills" == "true" ]] && condition_met=true
+                    ;;
+                "compiled_single_command")
+                    [[ "$compiled_single_command" == "true" ]] && condition_met=true
+                    ;;
+                *)
+                    print_warning "Unknown conditional flag: $flag_name"
+                    ;;
+            esac
+
+            # Push current should_include onto stack
+            stack_should_include+=("$should_include")
+
+            # Update should_include based on parent's state AND current condition
+            if [[ "$should_include" == true ]] && [[ "$condition_met" == true ]]; then
+                should_include=true
+            else
+                should_include=false
+            fi
+
+            ((nesting_level++))
+            continue
+        fi
+
+        # Check for UNLESS tags
+        if [[ "$line" =~ \{\{UNLESS[[:space:]]+([a-z_]+)\}\} ]]; then
+            local flag_name="${BASH_REMATCH[1]}"
+
+            # Evaluate condition (opposite of IF)
+            local condition_met=false
+            case "$flag_name" in
+                "use_claude_code_subagents")
+                    [[ "$use_claude_code_subagents" != "true" ]] && condition_met=true
+                    ;;
+                "standards_as_claude_code_skills")
+                    [[ "$standards_as_claude_code_skills" != "true" ]] && condition_met=true
+                    ;;
+                "compiled_single_command")
+                    [[ "$compiled_single_command" != "true" ]] && condition_met=true
+                    ;;
+                *)
+                    print_warning "Unknown conditional flag: $flag_name"
+                    ;;
+            esac
+
+            # Push current should_include onto stack
+            stack_should_include+=("$should_include")
+
+            # Update should_include based on parent's state AND current condition
+            if [[ "$should_include" == true ]] && [[ "$condition_met" == true ]]; then
+                should_include=true
+            else
+                should_include=false
+            fi
+
+            ((nesting_level++))
+            continue
+        fi
+
+        # Check for ENDIF tags
+        if [[ "$line" =~ \{\{ENDIF[[:space:]]+([a-z_]+)\}\} ]]; then
+            ((nesting_level--))
+
+            # Pop should_include from stack
+            if [[ ${#stack_should_include[@]} -gt 0 ]]; then
+                local last_index=$((${#stack_should_include[@]} - 1))
+                should_include="${stack_should_include[$last_index]}"
+                unset 'stack_should_include[$last_index]'
+            else
+                should_include=true
+            fi
+
+            continue
+        fi
+
+        # Check for ENDUNLESS tags
+        if [[ "$line" =~ \{\{ENDUNLESS[[:space:]]+([a-z_]+)\}\} ]]; then
+            ((nesting_level--))
+
+            # Pop should_include from stack
+            if [[ ${#stack_should_include[@]} -gt 0 ]]; then
+                local last_index=$((${#stack_should_include[@]} - 1))
+                should_include="${stack_should_include[$last_index]}"
+                unset 'stack_should_include[$last_index]'
+            else
+                should_include=true
+            fi
+
+            continue
+        fi
+
+        # Include line if should_include is true
+        if [[ "$should_include" == true ]]; then
+            if [[ -z "$result" ]]; then
+                result="$line"
+            else
+                result="$result"$'\n'"$line"
+            fi
+        fi
+    done <<< "$content"
+
+    # Check for unclosed conditionals
+    if [[ $nesting_level -ne 0 ]]; then
+        print_warning "Unclosed conditional block detected (nesting level: $nesting_level)"
+    fi
+
+    echo "$result"
+}
+
 # Process workflow replacements recursively
 process_workflows() {
     local content=$1
@@ -803,6 +718,153 @@ process_standards() {
     done | sort -u
 }
 
+# Process PHASE tag replacements in command files
+# Embeds the content of referenced files with H1 headers
+process_phase_tags() {
+    local content=$1
+    local base_dir=$2
+    local profile=$3
+    local mode=$4  # "embed" or empty (no processing)
+
+    # If no mode specified, return content unchanged
+    if [[ -z "$mode" ]]; then
+        echo "$content"
+        return 0
+    fi
+
+    # Find all PHASE tags: {{PHASE X: @agent-os/commands/path/to/file.md}}
+    local phase_refs=$(echo "$content" | grep -o '{{PHASE [^}]*}}' | sort -u)
+
+    if [[ -z "$phase_refs" ]]; then
+        echo "$content"
+        return 0
+    fi
+
+    while IFS= read -r phase_ref; do
+        if [[ -z "$phase_ref" ]]; then
+            continue
+        fi
+
+        if [[ "$mode" == "embed" ]]; then
+            # CASE A: Embed the file content with H1 header
+            # Extract: {{PHASE 1: @agent-os/commands/plan-product/1-product-concept.md}}
+            # To get: PHASE 1, plan-product/1-product-concept.md, "Product Concept"
+
+            local phase_label=$(echo "$phase_ref" | sed 's/{{//' | sed 's/:.*$//')  # "PHASE 1"
+            local file_ref=$(echo "$phase_ref" | sed 's/.*@agent-os\/commands\///' | sed 's/}}$//')  # "plan-product/1-product-concept.md"
+            local file_name=$(basename "$file_ref" .md)  # "1-product-concept"
+
+            # Convert "1-product-concept" to "Product Concept"
+            local title=$(echo "$file_name" | sed 's/^[0-9]*-//' | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
+
+            # Get the actual file path in the profile
+            # Insert /single-agent/ into the path: create-tasks/1-file.md -> create-tasks/single-agent/1-file.md
+            local cmd_name=$(dirname "$file_ref")
+            local filename=$(basename "$file_ref")
+            local source_file=$(get_profile_file "$profile" "commands/$cmd_name/single-agent/$filename" "$base_dir")
+
+            if [[ -f "$source_file" ]]; then
+                # Read the file content
+                local file_content=$(cat "$source_file")
+
+                # Process the file content through the compilation pipeline
+                # (conditionals, workflows, standards) before embedding
+                # Set compiled_single_command=true to exclude content wrapped in {{UNLESS compiled_single_command}}
+                file_content=$(process_conditionals "$file_content" "${EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS:-true}" "${EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS:-true}" "true")
+                file_content=$(process_workflows "$file_content" "$base_dir" "$profile" "")
+
+                # Process standards replacements in the embedded file
+                local standards_refs=$(echo "$file_content" | grep -o '{{standards/[^}]*}}' | sort -u)
+                while IFS= read -r standards_ref; do
+                    if [[ -z "$standards_ref" ]]; then
+                        continue
+                    fi
+
+                    local standards_pattern=$(echo "$standards_ref" | sed 's/{{standards\///' | sed 's/}}//')
+                    local standards_list=$(process_standards "$file_content" "$base_dir" "$profile" "$standards_pattern")
+
+                    # Create temp files for the replacement
+                    local temp_file_content=$(mktemp)
+                    local temp_standards=$(mktemp)
+                    echo "$file_content" > "$temp_file_content"
+                    echo "$standards_list" > "$temp_standards"
+
+                    # Use perl to replace without escaping newlines
+                    file_content=$(perl -e '
+                        use strict;
+                        use warnings;
+
+                        my $ref = $ARGV[0];
+                        my $standards_file = $ARGV[1];
+                        my $content_file = $ARGV[2];
+
+                        # Read standards list
+                        open(my $fh, "<", $standards_file) or die $!;
+                        my $standards = do { local $/; <$fh> };
+                        close($fh);
+                        chomp $standards;
+
+                        # Read content
+                        open($fh, "<", $content_file) or die $!;
+                        my $content = do { local $/; <$fh> };
+                        close($fh);
+
+                        # Do the replacement - use quotemeta on entire reference
+                        my $pattern = quotemeta($ref);
+                        $content =~ s/$pattern/$standards/g;
+
+                        print $content;
+                    ' "$standards_ref" "$temp_standards" "$temp_file_content")
+
+                    rm -f "$temp_file_content" "$temp_standards"
+                done <<< "$standards_refs"
+
+                # Create the replacement text with H1 header
+                local replacement="# $phase_label: $title"$'\n\n'"$file_content"
+
+                # Replace the tag with the embedded content
+                local temp_content=$(mktemp)
+                local temp_replacement=$(mktemp)
+                echo "$content" > "$temp_content"
+                echo "$replacement" > "$temp_replacement"
+
+                content=$(perl -e '
+                    use strict;
+                    use warnings;
+
+                    my $ref = $ARGV[0];
+                    my $replacement_file = $ARGV[1];
+                    my $content_file = $ARGV[2];
+
+                    # Read replacement
+                    open(my $fh, "<", $replacement_file) or die $!;
+                    my $replacement = do { local $/; <$fh> };
+                    close($fh);
+                    chomp $replacement;
+
+                    # Read content
+                    open($fh, "<", $content_file) or die $!;
+                    my $content = do { local $/; <$fh> };
+                    close($fh);
+
+                    # Do the replacement - use quotemeta on the tag
+                    my $pattern = quotemeta($ref);
+                    $content =~ s/$pattern/$replacement/g;
+
+                    print $content;
+                ' "$phase_ref" "$temp_replacement" "$temp_content")
+
+                rm -f "$temp_content" "$temp_replacement"
+            else
+                print_verbose "Warning: File not found for PHASE tag: $file_ref"
+            fi
+        fi
+
+    done <<< "$phase_refs"
+
+    echo "$content"
+}
+
 # Compile agent file with all replacements
 compile_agent() {
     local source_file=$1
@@ -810,6 +872,7 @@ compile_agent() {
     local base_dir=$3
     local profile=$4
     local role_data=$5
+    local phase_mode=${6:-""}  # Optional: "embed" to embed PHASE content, or empty for no processing
 
     local content=$(cat "$source_file")
 
@@ -879,6 +942,11 @@ compile_agent() {
         rm -f "$temp_role_data"
     fi
 
+    # Process conditional compilation tags
+    # Uses global variables: EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS, EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS
+    # compiled_single_command=false for main file (will be true for embedded PHASE files)
+    content=$(process_conditionals "$content" "${EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS:-true}" "${EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS:-true}" "false")
+
     # Process workflow replacements
     content=$(process_workflows "$content" "$base_dir" "$profile" "")
 
@@ -929,6 +997,9 @@ compile_agent() {
         rm -f "$temp_content" "$temp_standards"
     done <<< "$standards_refs"
 
+    # Process PHASE tag replacements
+    content=$(process_phase_tags "$content" "$base_dir" "$profile" "$phase_mode")
+
     # Replace Playwright in tools
     if echo "$content" | grep -q "^tools:.*Playwright"; then
         local tools_line=$(echo "$content" | grep "^tools:")
@@ -952,8 +1023,9 @@ compile_command() {
     local dest_file=$2
     local base_dir=$3
     local profile=$4
+    local phase_mode=${5:-""}  # Optional: "embed" to embed PHASE content, or empty for no processing
 
-    compile_agent "$source_file" "$dest_file" "$base_dir" "$profile" ""
+    compile_agent "$source_file" "$dest_file" "$base_dir" "$profile" "" "$phase_mode"
 }
 
 # -----------------------------------------------------------------------------
@@ -974,6 +1046,29 @@ check_version_compatibility() {
     fi
 
     return 0
+}
+
+# Check if project needs migration to 2.1.0
+check_needs_migration() {
+    local project_version=$1
+
+    # Empty or missing version needs migration
+    if [[ -z "$project_version" ]]; then
+        return 0  # needs migration
+    fi
+
+    # Parse version components
+    local major=$(echo "$project_version" | cut -d'.' -f1)
+    local minor=$(echo "$project_version" | cut -d'.' -f2)
+
+    # Check if < 2.1.0
+    if [[ "$major" -lt 2 ]]; then
+        return 0  # needs migration
+    elif [[ "$major" -eq 2 ]] && [[ "$minor" -lt 1 ]]; then
+        return 0  # needs migration
+    fi
+
+    return 1  # no migration needed
 }
 
 # -----------------------------------------------------------------------------
@@ -1067,34 +1162,65 @@ parse_bool_flag() {
 
 # Load base installation configuration
 load_base_config() {
-    BASE_VERSION=$(get_yaml_value "$BASE_DIR/config.yml" "version" "2.0.0")
+    BASE_VERSION=$(get_yaml_value "$BASE_DIR/config.yml" "version" "2.1.0")
     BASE_PROFILE=$(get_yaml_value "$BASE_DIR/config.yml" "profile" "default")
-    BASE_MULTI_AGENT_MODE=$(get_yaml_value "$BASE_DIR/config.yml" "multi_agent_mode" "true")
-    BASE_MULTI_AGENT_TOOL=$(get_yaml_value "$BASE_DIR/config.yml" "multi_agent_tool" "claude-code")
-    BASE_SINGLE_AGENT_MODE=$(get_yaml_value "$BASE_DIR/config.yml" "single_agent_mode" "false")
-    BASE_SINGLE_AGENT_TOOL=$(get_yaml_value "$BASE_DIR/config.yml" "single_agent_tool" "generic")
+    BASE_CLAUDE_CODE_COMMANDS=$(get_yaml_value "$BASE_DIR/config.yml" "claude_code_commands" "true")
+    BASE_USE_CLAUDE_CODE_SUBAGENTS=$(get_yaml_value "$BASE_DIR/config.yml" "use_claude_code_subagents" "true")
+    BASE_AGENT_OS_COMMANDS=$(get_yaml_value "$BASE_DIR/config.yml" "agent_os_commands" "false")
+    BASE_STANDARDS_AS_CLAUDE_CODE_SKILLS=$(get_yaml_value "$BASE_DIR/config.yml" "standards_as_claude_code_skills" "true")
+
+    # Check for old config flags to set variables for validation
+    MULTI_AGENT_MODE=$(get_yaml_value "$BASE_DIR/config.yml" "multi_agent_mode" "")
+    SINGLE_AGENT_MODE=$(get_yaml_value "$BASE_DIR/config.yml" "single_agent_mode" "")
+    MULTI_AGENT_TOOL=$(get_yaml_value "$BASE_DIR/config.yml" "multi_agent_tool" "")
 }
 
 # Load project installation configuration
 load_project_config() {
     PROJECT_VERSION=$(get_project_config "$PROJECT_DIR" "version")
     PROJECT_PROFILE=$(get_project_config "$PROJECT_DIR" "profile")
-    PROJECT_MULTI_AGENT_MODE=$(get_project_config "$PROJECT_DIR" "multi_agent_mode")
-    PROJECT_MULTI_AGENT_TOOL=$(get_project_config "$PROJECT_DIR" "multi_agent_tool")
-    PROJECT_SINGLE_AGENT_MODE=$(get_project_config "$PROJECT_DIR" "single_agent_mode")
-    PROJECT_SINGLE_AGENT_TOOL=$(get_project_config "$PROJECT_DIR" "single_agent_tool")
+    PROJECT_CLAUDE_CODE_COMMANDS=$(get_project_config "$PROJECT_DIR" "claude_code_commands")
+    PROJECT_USE_CLAUDE_CODE_SUBAGENTS=$(get_project_config "$PROJECT_DIR" "use_claude_code_subagents")
+    PROJECT_AGENT_OS_COMMANDS=$(get_project_config "$PROJECT_DIR" "agent_os_commands")
+    PROJECT_STANDARDS_AS_CLAUDE_CODE_SKILLS=$(get_project_config "$PROJECT_DIR" "standards_as_claude_code_skills")
+
+    # Check for old config flags to set variables for validation
+    MULTI_AGENT_MODE=$(get_project_config "$PROJECT_DIR" "multi_agent_mode")
+    SINGLE_AGENT_MODE=$(get_project_config "$PROJECT_DIR" "single_agent_mode")
+    MULTI_AGENT_TOOL=$(get_project_config "$PROJECT_DIR" "multi_agent_tool")
 }
 
 # Validate configuration
 validate_config() {
-    local multi_agent_mode=$1
-    local single_agent_mode=$2
-    local profile=$3
+    local claude_code_commands=$1
+    local use_claude_code_subagents=$2
+    local agent_os_commands=$3
+    local standards_as_claude_code_skills=$4
+    local profile=$5
+    local print_warnings=${6:-true}  # Default to true if not provided
 
-    # Validate at least one mode is enabled
-    if [[ "$multi_agent_mode" != "true" ]] && [[ "$single_agent_mode" != "true" ]]; then
-        print_error "At least one mode (single-agent or multi-agent) must be enabled"
+    # Validate at least one output is enabled
+    if [[ "$claude_code_commands" != "true" ]] && [[ "$agent_os_commands" != "true" ]]; then
+        print_error "At least one of 'claude_code_commands' or 'agent_os_commands' must be true"
         exit 1
+    fi
+
+    # Validate subagents require Claude Code
+    if [[ "$use_claude_code_subagents" == "true" ]] && [[ "$claude_code_commands" != "true" ]]; then
+        if [[ "$print_warnings" == "true" ]]; then
+            print_warning "use_claude_code_subagents requires claude_code_commands to be true"
+            print_warning "Ignoring subagent setting"
+        fi
+    fi
+
+    # Validate standards as skills require Claude Code
+    if [[ "$standards_as_claude_code_skills" == "true" ]] && [[ "$claude_code_commands" != "true" ]]; then
+        if [[ "$print_warnings" == "true" ]]; then
+            print_warning "standards_as_claude_code_skills requires claude_code_commands to be true"
+            print_warning "Treating standards_as_claude_code_skills as false"
+        fi
+        # Set global variable to override the effective value
+        EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS="false"
     fi
 
     # Validate profile exists
@@ -1108,32 +1234,217 @@ validate_config() {
 write_project_config() {
     local version=$1
     local profile=$2
-    local multi_agent_mode=$3
-    local multi_agent_tool=$4
-    local single_agent_mode=$5
-    local single_agent_tool=$6
+    local claude_code_commands=$3
+    local use_claude_code_subagents=$4
+    local agent_os_commands=$5
+    local standards_as_claude_code_skills=$6
     local dest="$PROJECT_DIR/agent-os/config.yml"
 
     local config_content="version: $version
 last_compiled: $(date '+%Y-%m-%d %H:%M:%S')
+
+# ================================================
+# Compiled with the following settings:
+#
+# To change these settings, run ~/agent-os/scripts/project-update.sh to re-compile your project with the new settings.
+# ================================================
 profile: $profile
-multi_agent_mode: $multi_agent_mode"
-
-    if [[ "$multi_agent_mode" == "true" ]]; then
-        config_content="$config_content
-multi_agent_tool: $multi_agent_tool"
-    fi
-
-    config_content="$config_content
-single_agent_mode: $single_agent_mode"
-
-    if [[ "$single_agent_mode" == "true" ]]; then
-        config_content="$config_content
-single_agent_tool: $single_agent_tool"
-    fi
+claude_code_commands: $claude_code_commands
+use_claude_code_subagents: $use_claude_code_subagents
+agent_os_commands: $agent_os_commands
+standards_as_claude_code_skills: $standards_as_claude_code_skills"
 
     local result=$(write_file "$config_content" "$dest")
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "$dest"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Claude Code Skills Functions
+# -----------------------------------------------------------------------------
+
+# Convert filename to human-readable name with acronym handling
+# Returns lowercase with acronyms in uppercase
+# Example: "api-design.md" -> "API design"
+#          "frontend/css.md" -> "frontend CSS"
+#          "rest-api-conventions.md" -> "REST API conventions"
+convert_filename_to_human_name() {
+    local filename=$1
+
+    # List of common acronyms to preserve in uppercase
+    local acronyms=("API" "CSS" "HTML" "SQL" "REST" "JSON" "XML" "HTTP" "HTTPS" "URL" "URI" "CLI" "GUI" "IDE" "SDK" "JWT")
+
+    # Remove .md extension
+    local name=$(echo "$filename" | sed 's/\.md$//')
+
+    # Replace hyphens, underscores, and slashes with spaces
+    name=$(echo "$name" | sed 's|[-_/]| |g')
+
+    # Convert to lowercase first
+    name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+
+    # Replace known acronyms with uppercase version
+    # Match all case variations: lowercase, Capitalized, UPPERCASE
+    for acronym in "${acronyms[@]}"; do
+        local lowercase=$(echo "$acronym" | tr '[:upper:]' '[:lower:]')
+        local capitalized=$(echo "$lowercase" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+
+        # Replace all variations with the uppercase acronym
+        # Use Perl for portable word boundary matching (\b works consistently across platforms)
+        name=$(echo "$name" | perl -pe "s/\\b$lowercase\\b/$acronym/g")
+        name=$(echo "$name" | perl -pe "s/\\b$capitalized\\b/$acronym/g")
+        name=$(echo "$name" | perl -pe "s/\\b$acronym\\b/$acronym/g")
+    done
+
+    echo "$name"
+}
+
+# Convert filename to human-readable name with title case and acronym handling
+# Returns title case with acronyms in uppercase
+# Example: "api-design.md" -> "API Design"
+#          "frontend/css.md" -> "Frontend CSS"
+#          "rest-api-conventions.md" -> "REST API Conventions"
+convert_filename_to_human_name_capitalized() {
+    local filename=$1
+
+    # List of common acronyms to preserve in uppercase
+    local acronyms=("API" "CSS" "HTML" "SQL" "REST" "JSON" "XML" "HTTP" "HTTPS" "URL" "URI" "CLI" "GUI" "IDE" "SDK" "JWT")
+
+    # Remove .md extension
+    local name=$(echo "$filename" | sed 's/\.md$//')
+
+    # Replace hyphens, underscores, and slashes with spaces
+    name=$(echo "$name" | sed 's|[-_/]| |g')
+
+    # Capitalize first letter of each word
+    name=$(echo "$name" | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1')
+
+    # Replace known acronyms with uppercase version
+    # Match all case variations: lowercase, Capitalized, UPPERCASE
+    for acronym in "${acronyms[@]}"; do
+        local lowercase=$(echo "$acronym" | tr '[:upper:]' '[:lower:]')
+        local capitalized=$(echo "$lowercase" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+
+        # Replace all variations with the uppercase acronym
+        # Use Perl for portable word boundary matching (\b works consistently across platforms)
+        name=$(echo "$name" | perl -pe "s/\\b$lowercase\\b/$acronym/g")
+        name=$(echo "$name" | perl -pe "s/\\b$capitalized\\b/$acronym/g")
+        name=$(echo "$name" | perl -pe "s/\\b$acronym\\b/$acronym/g")
+    done
+    echo "$name"
+}
+
+# Create a Claude Code Skill from a standards file
+# Args: $1=standards file path (relative to profile, e.g., "standards/frontend/css.md")
+#       $2=dest base directory (project directory)
+#       $3=base directory (~/agent-os)
+#       $4=profile name
+create_standard_skill() {
+    local standards_file=$1
+    local dest_base=$2
+    local base_dir=$3
+    local profile=$4
+
+    # Remove "standards/" prefix and ".md" extension for skill directory name
+    # Convert path separators to hyphens
+    # Example: "standards/frontend/css.md" -> "frontend-css"
+    local skill_name=$(echo "$standards_file" | sed 's|^standards/||' | sed 's|\.md$||' | sed 's|/|-|g')
+
+    # Get human-readable name from the full path (excluding "standards/")
+    # Example: "standards/frontend/css.md" -> "frontend CSS" (lowercase)
+    local path_without_standards=$(echo "$standards_file" | sed 's|^standards/||')
+    local human_name=$(convert_filename_to_human_name "$path_without_standards")
+    local human_name_capitalized=$(convert_filename_to_human_name_capitalized "$path_without_standards")
+
+    # Create skill directory (directly in .claude/skills/, not in agent-os subfolder)
+    local skill_dir="$dest_base/.claude/skills/$skill_name"
+    ensure_dir "$skill_dir"
+
+    # Get the skill template from the profile
+    local template_file=$(get_profile_file "$profile" "claude-code-skill-template.md" "$base_dir")
+    if [[ ! -f "$template_file" ]]; then
+        print_error "Skill template not found: $template_file"
+        return 1
+    fi
+
+    # Prepend agent-os/ to the standards file path for the file reference
+    local standard_file_path_with_prefix="agent-os/$standards_file"
+
+    # Read template and replace placeholders
+    local skill_content=$(cat "$template_file")
+    skill_content=$(echo "$skill_content" | sed "s|{{standard_name_humanized}}|$human_name|g")
+    skill_content=$(echo "$skill_content" | sed "s|{{standard_name_humanized_capitalized}}|$human_name_capitalized|g")
+    skill_content=$(echo "$skill_content" | sed "s|{{standard_file_path}}|$standard_file_path_with_prefix|g")
+
+    # Write SKILL.md
+    local skill_file="$skill_dir/SKILL.md"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "$skill_file"
+    else
+        echo "$skill_content" > "$skill_file"
+        print_verbose "Created skill: $skill_file"
+    fi
+}
+
+# Install Claude Code Skills from standards files
+install_claude_code_skills() {
+    # Only install skills if both flags are enabled
+    if [[ "$EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS" != "true" ]] || [[ "$EFFECTIVE_CLAUDE_CODE_COMMANDS" != "true" ]]; then
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" != "true" ]]; then
+        print_status "Installing Claude Code Skills..."
+    fi
+
+    local skills_count=0
+
+    # Get all standards files for the current profile
+    while read file; do
+        if [[ "$file" == standards/* ]] && [[ "$file" == *.md ]]; then
+            # Create skill from this standards file
+            create_standard_skill "$file" "$PROJECT_DIR" "$BASE_DIR" "$EFFECTIVE_PROFILE"
+
+            # Track the skill file for dry run
+            local skill_name=$(echo "$file" | sed 's|^standards/||' | sed 's|\.md$||' | sed 's|/|-|g')
+            local skill_file="$PROJECT_DIR/.claude/skills/$skill_name/SKILL.md"
+            if [[ "$DRY_RUN" == "true" ]]; then
+                INSTALLED_FILES+=("$skill_file")
+            fi
+            ((skills_count++)) || true
+        fi
+    done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "standards")
+
+    if [[ "$DRY_RUN" != "true" ]]; then
+        if [[ $skills_count -gt 0 ]]; then
+            echo "✓ Installed $skills_count Claude Code Skills"
+            echo -e "${YELLOW}  👉 Be sure to run the /improve-skills command next using Claude Code${NC}"
+        fi
+    fi
+}
+
+# Install improve-skills command (only when Skills are enabled)
+install_improve_skills_command() {
+    # Only install if both Claude Code commands AND Skills are enabled
+    if [[ "$EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS" != "true" ]] || [[ "$EFFECTIVE_CLAUDE_CODE_COMMANDS" != "true" ]]; then
+        return 0
+    fi
+
+    local target_dir="$PROJECT_DIR/.claude/commands/agent-os"
+    mkdir -p "$target_dir"
+
+    # Find the improve-skills command file
+    local source_file=$(get_profile_file "$EFFECTIVE_PROFILE" "commands/improve-skills/improve-skills.md" "$BASE_DIR")
+
+    if [[ -f "$source_file" ]]; then
+        local dest="$target_dir/improve-skills.md"
+
+        # Compile the command (with workflow and standards injection)
+        local compiled=$(compile_command "$source_file" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE")
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            INSTALLED_FILES+=("$dest")
+        fi
     fi
 }

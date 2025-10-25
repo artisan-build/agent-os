@@ -22,6 +22,14 @@ Docs, installation, usage, & best practices 👉 [It's all here](https://builder
 
 ---
 
+### Follow updates & releases
+
+Read the [changelog](CHANGELOG.md)
+
+[Subscribe to be notified of major new releases of Agent OS](https://buildermethods.com/agent-os)
+
+---
+
 ### Created by Brian Casel @ Builder Methods
 
 Created by Brian Casel, the creator of [Builder Methods](https://buildermethods.com), where Brian helps professional software developers and teams build with AI.
@@ -31,4 +39,3 @@ Get Brian's free resources on building with AI:
 - [YouTube](https://youtube.com/@briancasel)
 
 Join [Builder Methods Pro](https://buildermethods.com/pro) for official support and connect with our community of AI-first builders:
-

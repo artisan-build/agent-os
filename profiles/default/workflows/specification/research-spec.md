@@ -7,7 +7,7 @@
 3. **Ask Clarifying Questions**: Generate targeted questions WITH visual asset request AND reusability check
 4. **Process Answers**: Analyze responses and any provided visuals
 5. **Ask Follow-ups**: Based on answers and visual analysis if needed
-6. **Save Requirements**: Document all requirements comprehensively
+6. **Save Requirements**: Document the requirements you've gathered to a single file named: `[spec-path]/planning/requirements.md`
 
 ## Workflow
 
@@ -44,7 +44,7 @@ This context will help you:
 
 ### Step 3: Generate First Round of Questions WITH Visual Request AND Reusability Check
 
-Based on the initial idea, generate 6-9 targeted, NUMBERED questions that explore requirements while suggesting reasonable defaults.
+Based on the initial idea, generate 4-8 targeted, NUMBERED questions that explore requirements while suggesting reasonable defaults.
 
 **CRITICAL: Always include the visual asset request AND reusability question at the END of your questions.**
 
@@ -149,7 +149,9 @@ Please provide these additional details.
 
 ### Step 6: Save Complete Requirements
 
-After all questions are answered, write ALL gathered information to `[spec-path]/planning/requirements.md`:
+After all questions are answered, record ALL gathered information to ONE FILE at this location with this name: `[spec-path]/planning/requirements.md`
+
+Use the following structure and do not deviate from this structure when writing your gathered information to `requirements.md`.  Include ONLY the items specified in the following structure:
 
 ```markdown
 # Spec Requirements: [Spec Name]
@@ -209,11 +211,6 @@ No visual assets provided.
 - [User actions enabled]
 - [Data to be managed]
 
-### Non-Functional Requirements
-- [Performance needs if mentioned]
-- [Security requirements if mentioned]
-- [Accessibility needs if mentioned]
-
 ### Reusability Opportunities
 - [Components that might exist already based on user's input]
 - [Backend patterns to investigate]
@@ -254,12 +251,12 @@ Ready for specification creation.
 ## Important Constraints
 
 - **MANDATORY**: Always run bash command to check visuals folder after receiving user answers
-- Visual check is based on actual files found via bash, NOT user statements
+- DO NOT write technical specifications for development. Just record your findings from information gathering to this single file: `[spec-path]/planning/requirements.md`.
+- Visual check is based on actual file(s) found via bash, NOT user statements
 - Check filenames for low-fidelity indicators and clarify design intent if found
 - Ask about existing similar features to promote code reuse
 - Keep follow-ups minimal (1-3 questions max)
 - Save user's exact answers, not interpretations
 - Document all visual findings including fidelity level
 - Document paths to similar features for spec-writer to reference
-- Create comprehensive requirements summary
 - OUTPUT questions and STOP to wait for orchestrator to relay responses

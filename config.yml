@@ -1,35 +1,48 @@
-version: 2.0.3
+version: 2.1.0
 base_install: true
 
-# ================================================
-# MULTI-AGENT MODE
-#
-# Use this mode if you're using a tool that supports multiple agents (a.k.a. subagents).
-# In multi-agent mode, you initiate commands (new-spec, create-spec, implement-spec, etc.)
-# your main agent orchestrates multiple subagents to perform long-running tasks autonomously.
-#
-# You can override this by running:
-# ~/.agent-os/scripts/project-install.sh --multi-agent-mode [true/false] --multi-agent-tool [tool-name]
-# ================================================
 
-multi_agent_mode: true
-
-# Currently supported tools: claude-code
-multi_agent_tool: claude-code
+# CONFIGURATION
+# Configure defaults for the tools you use and how Agent OS should compile commands for your projects.
 
 
 # ================================================
-# SINGLE-AGENT MODE
+# Do you use Claude Code?
+# Set to true to install commands in your project's .claude/commands/agent-os/ folder
 #
-# Use this mode if you're using a tool that doesn't support multiple agents (a.k.a. subagents).
-# In single-agent mode, you deliver prompts to your main agent to perform tasks step-by-step.
-#
-# You can override this by running:
-# ~/.agent-os/scripts/project-install.sh --single-agent-mode [true/false] --single-agent-tool [tool-name]
+# Override this default when running project-install.sh by using the flag --claude-code-commands=true/false
 # ================================================
+claude_code_commands: true
 
-single_agent_mode: false
-single_agent_tool: generic
+
+# ================================================
+# Do you use other coding tools (Cursor, Windsurf, etc.)?
+# Set to true to install commands in your project's agent-os/commands/ folder
+#
+# Override this default when running project-install.sh by using the flag --agent-os-commands true/false
+# ================================================
+agent_os_commands: false
+
+
+# ================================================
+# Do you want Claude Code to use subagents?
+# Set to true to install agents in .claude/agents/agent-os/ and have commands delegate to them
+# Requires claude_code_commands: true
+#
+# Override this default when running project-install.sh by using the flag --use-claude-code-subagents true/false
+# ================================================
+use_claude_code_subagents: true
+
+
+# ================================================
+# Should standards be provided to Claude Code as Skills?
+# Set to true to use Claude Code's Skills feature for reading standards
+# Set to false to inject standards as file references in command prompts
+# Requires claude_code_commands: true (automatically treated as false if claude_code_commands is false)
+#
+# Override this default when running project-install.sh by using the flag --standards-as-claude-code-skills true/false
+# ================================================
+standards_as_claude_code_skills: false
 
 
 # ================================================
@@ -37,8 +50,7 @@ single_agent_tool: generic
 #
 # Use this profile by default.
 #
-# You can override this by running:
-# ~/.agent-os/scripts/project-install.sh --profile [profile-name]
+# Override this default when running project-install.sh by using the flag --profile [profile-name]
 # ================================================
 
 profile: laravel

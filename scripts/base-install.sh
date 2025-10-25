@@ -328,39 +328,85 @@ prompt_overwrite_choice() {
     echo ""
     print_status "What would you like to do?"
     echo ""
-    echo "1) Overwrite everything"
-    echo "2) Overwrite only the default profile, including your standards"
-    echo "3) Overwrite only the scripts"
-    echo "4) Overwrite only the base config.yml"
-    echo "5) Cancel installation"
+
+    echo -e "${YELLOW}1) Full update${NC}"
     echo ""
-    echo "If you choose to update and overwrite, your previous base installation will be saved in ~/agent-os.backup."
+    echo "    Updates & overwrites:"
+    echo "    - ~/agent-os/profiles/default/*"
+    echo "    - ~/agent-os/scripts/*"
+    echo "    - ~/agent-os/CHANGELOG.md"
+    echo ""
+    echo "    Updates your version number in ~/agent-os/config.yml but doesn't change anything else in this file."
+    echo ""
+    echo "    Everything else in your ~/agent-os folder will remain intact."
     echo ""
 
-    read -p "Enter your choice (1-5): " choice < /dev/tty
+    echo -e "${YELLOW}2) Update default profile only${NC}"
+    echo ""
+    echo "    Updates & overwrites:"
+    echo "    - ~/agent-os/profiles/default/*"
+    echo ""
+    echo "    Everything else in your ~/agent-os folder will remain intact."
+    echo ""
+
+    echo -e "${YELLOW}3) Update scripts only${NC}"
+    echo ""
+    echo "    Updates & overwrites:"
+    echo "    - ~/agent-os/scripts/*"
+    echo ""
+    echo "    Everything else in your ~/agent-os folder will remain intact."
+    echo ""
+
+    echo -e "${YELLOW}4) Update config.yml only${NC}"
+    echo ""
+    echo "    Updates & overwrites:"
+    echo "    - ~/agent-os/config.yml"
+    echo ""
+    echo "    Everything else in your ~/agent-os folder will remain intact."
+    echo ""
+
+    echo -e "${YELLOW}5) Delete & reinstall fresh${NC}"
+    echo ""
+    echo "    - Makes a backup of your current ~/agent-os folder at ~/agent-os.backup"
+    echo "    - Deletes your current ~/agent-os folder and all of its contents."
+    echo "    - Installs a fresh ~/agent-os base installation"
+    echo ""
+
+    echo -e "${YELLOW}6) Cancel and abort${NC}"
+    echo ""
+
+    read -p "Enter your choice (1-6): " choice < /dev/tty
 
     case $choice in
         1)
             echo ""
-            print_status "Overwriting entire installation..."
-            overwrite_all
+            print_status "Performing full update..."
+            full_update "$latest_version"
             ;;
         2)
             echo ""
-            print_status "Overwriting default profile..."
+            print_status "Updating default profile..."
+            create_backup
             overwrite_profile
             ;;
         3)
             echo ""
-            print_status "Overwriting scripts..."
+            print_status "Updating scripts..."
+            create_backup
             overwrite_scripts
             ;;
         4)
             echo ""
-            print_status "Overwriting config.yml..."
+            print_status "Updating config.yml..."
+            create_backup
             overwrite_config
             ;;
         5)
+            echo ""
+            print_status "Deleting & reinstalling fresh..."
+            overwrite_all
+            ;;
+        6)
             echo ""
             print_warning "Installation cancelled"
             exit 0
@@ -372,6 +418,87 @@ prompt_overwrite_choice() {
     esac
 }
 
+# Create backup of existing installation
+create_backup() {
+    # Backup existing installation
+    if [[ -d "$BASE_DIR.backup" ]]; then
+        rm -rf "$BASE_DIR.backup"
+    fi
+    cp -R "$BASE_DIR" "$BASE_DIR.backup"
+    echo "✓ Backed up existing installation to ~/agent-os.backup"
+    echo ""
+}
+
+# Full update - updates profile, scripts, CHANGELOG.md, and version number in config.yml
+full_update() {
+    local latest_version=$1
+
+    # Create backup first
+    create_backup
+
+    # Update default profile
+    print_status "Updating default profile..."
+    rm -rf "$BASE_DIR/profiles/default"
+    local file_count=0
+    local all_files=$(get_all_repo_files | grep "^profiles/default/")
+    if [[ -n "$all_files" ]]; then
+        while IFS= read -r file_path; do
+            if [[ -n "$file_path" ]]; then
+                local dest_file="${BASE_DIR}/${file_path}"
+                local dir_path=$(dirname "$dest_file")
+                [[ -d "$dir_path" ]] || mkdir -p "$dir_path"
+                if download_file "$file_path" "$dest_file"; then
+                    ((file_count++))
+                    print_verbose "  Downloaded: ${file_path}"
+                fi
+            fi
+        done <<< "$all_files"
+    fi
+    echo "✓ Updated default profile ($file_count files)"
+    echo ""
+
+    # Update scripts
+    print_status "Updating scripts..."
+    rm -rf "$BASE_DIR/scripts"
+    file_count=0
+    all_files=$(get_all_repo_files | grep "^scripts/")
+    if [[ -n "$all_files" ]]; then
+        while IFS= read -r file_path; do
+            if [[ -n "$file_path" ]]; then
+                local dest_file="${BASE_DIR}/${file_path}"
+                local dir_path=$(dirname "$dest_file")
+                [[ -d "$dir_path" ]] || mkdir -p "$dir_path"
+                if download_file "$file_path" "$dest_file"; then
+                    ((file_count++))
+                    print_verbose "  Downloaded: ${file_path}"
+                fi
+            fi
+        done <<< "$all_files"
+        chmod +x "$BASE_DIR/scripts/"*.sh 2>/dev/null || true
+    fi
+    echo "✓ Updated scripts ($file_count files)"
+    echo ""
+
+    # Update CHANGELOG.md
+    print_status "Updating CHANGELOG.md..."
+    if download_file "CHANGELOG.md" "$BASE_DIR/CHANGELOG.md"; then
+        echo "✓ Updated CHANGELOG.md"
+    fi
+    echo ""
+
+    # Update version number in config.yml (without overwriting the entire file)
+    print_status "Updating version number in config.yml..."
+    if [[ -f "$BASE_DIR/config.yml" ]] && [[ -n "$latest_version" ]]; then
+        # Use sed to update only the version line
+        sed -i.bak "s/^version:.*/version: $latest_version/" "$BASE_DIR/config.yml"
+        rm -f "$BASE_DIR/config.yml.bak"
+        echo "✓ Updated version to $latest_version in config.yml"
+    fi
+    echo ""
+
+    print_success "Full update completed!"
+}
+
 # Overwrite everything
 overwrite_all() {
     # Backup existing installation
@@ -380,6 +507,7 @@ overwrite_all() {
     fi
     mv "$BASE_DIR" "$BASE_DIR.backup"
     echo "✓ Backed up existing installation to ~/agent-os.backup"
+    echo ""
 
     # Perform fresh installation
     perform_fresh_installation
@@ -392,7 +520,6 @@ overwrite_profile() {
 
     # Download only profile files
     local file_count=0
-    print_status "Updating default profile..."
 
     # Get all files and filter for profiles/default
     local all_files=$(get_all_repo_files | grep "^profiles/default/")
@@ -412,6 +539,7 @@ overwrite_profile() {
         done <<< "$all_files"
     fi
 
+    echo "✓ Updated default profile ($file_count files)"
     echo ""
     print_success "Default profile has been updated!"
 }
@@ -423,7 +551,6 @@ overwrite_scripts() {
 
     # Download only script files
     local file_count=0
-    print_status "Updating scripts..."
 
     # Get all files and filter for scripts/
     local all_files=$(get_all_repo_files | grep "^scripts/")
@@ -446,24 +573,19 @@ overwrite_scripts() {
         chmod +x "$BASE_DIR/scripts/"*.sh 2>/dev/null || true
     fi
 
+    echo "✓ Updated scripts ($file_count files)"
     echo ""
     print_success "Scripts have been updated!"
 }
 
 # Overwrite only config
 overwrite_config() {
-    # Backup existing config
-    if [[ -f "$BASE_DIR/config.yml" ]]; then
-        cp "$BASE_DIR/config.yml" "$BASE_DIR/config.yml.backup"
-        echo "✓ Backed up existing config to config.yml.backup"
-    fi
-
     # Download new config.yml
-    print_status "Updating config.yml..."
     if download_file "config.yml" "$BASE_DIR/config.yml"; then
         print_verbose "  Downloaded: config.yml"
     fi
 
+    echo "✓ Updated config.yml"
     echo ""
     print_success "Config has been updated!"
 }

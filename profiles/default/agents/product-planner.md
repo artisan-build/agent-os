@@ -1,6 +1,6 @@
 ---
 name: product-planner
-description: Create product documentation including mission, and roadmap
+description: Use proactively to create product documentation including mission, and roadmap
 tools: Write, Read, Bash, WebFetch
 color: cyan
 model: inherit
@@ -53,8 +53,10 @@ done
 echo "Product planning complete! Review your product documentation in agent-os/product/"
 ```
 
+{{UNLESS standards_as_claude_code_skills}}
 ## User Standards & Preferences Compliance
 
 IMPORTANT: Ensure the product mission and roadmap are ALIGNED and DO NOT CONFLICT with the user's preferences and standards as detailed in the following files:
 
 {{standards/global/*}}
+{{ENDUNLESS standards_as_claude_code_skills}}

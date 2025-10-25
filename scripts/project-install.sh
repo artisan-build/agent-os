@@ -22,10 +22,10 @@ source "$SCRIPT_DIR/common-functions.sh"
 DRY_RUN="false"
 VERBOSE="false"
 PROFILE=""
-MULTI_AGENT_MODE=""
-MULTI_AGENT_TOOL=""
-SINGLE_AGENT_MODE=""
-SINGLE_AGENT_TOOL=""
+CLAUDE_CODE_COMMANDS=""
+USE_CLAUDE_CODE_SUBAGENTS=""
+AGENT_OS_COMMANDS=""
+STANDARDS_AS_CLAUDE_CODE_SKILLS=""
 RE_INSTALL="false"
 OVERWRITE_ALL="false"
 OVERWRITE_STANDARDS="false"
@@ -44,25 +44,27 @@ Usage: $0 [OPTIONS]
 Install Agent OS into the current project directory.
 
 Options:
-    --profile PROFILE           Use specified profile (default: from config.yml)
-    --multi-agent-mode [BOOL]   Enable/disable multi-agent mode
-    --multi-agent-tool TOOL     Specify multi-agent tool
-    --single-agent-mode [BOOL]  Enable/disable single-agent mode
-    --single-agent-tool TOOL    Specify single-agent tool
-    --re-install                Delete and reinstall Agent OS
-    --overwrite-all             Overwrite all existing files during update
-    --overwrite-standards       Overwrite existing standards during update
-    --overwrite-commands        Overwrite existing commands during update
-    --overwrite-agents          Overwrite existing agents during update
-    --dry-run                   Show what would be done without doing it
-    --verbose                   Show detailed output
-    -h, --help                  Show this help message
+    --profile PROFILE                        Use specified profile (default: from config.yml)
+    --claude-code-commands [BOOL]            Install Claude Code commands (default: from config.yml)
+    --use-claude-code-subagents [BOOL]       Use Claude Code subagents (default: from config.yml)
+    --agent-os-commands [BOOL]               Install agent-os commands (default: from config.yml)
+    --standards-as-claude-code-skills [BOOL] Use Claude Code Skills for standards (default: from config.yml)
+    --re-install                             Delete and reinstall Agent OS
+    --overwrite-all                          Overwrite all existing files during update
+    --overwrite-standards                    Overwrite existing standards during update
+    --overwrite-commands                     Overwrite existing commands during update
+    --overwrite-agents                       Overwrite existing agents during update
+    --dry-run                                Show what would be done without doing it
+    --verbose                                Show detailed output
+    -h, --help                               Show this help message
+
+Note: Flags accept both hyphens and underscores (e.g., --use-claude-code-subagents or --use_claude_code_subagents)
 
 Examples:
     $0
     $0 --profile rails
-    $0 --multi-agent-mode true --multi-agent-tool claude-code
-    $0 --single-agent-mode --dry-run
+    $0 --claude-code-commands true --use-claude-code-subagents true
+    $0 --agent-os-commands true --dry-run
 
 EOF
     exit 0
@@ -74,26 +76,29 @@ EOF
 
 parse_arguments() {
     while [[ $# -gt 0 ]]; do
-        case $1 in
+        # Normalize flag by replacing underscores with hyphens
+        local flag="${1//_/-}"
+
+        case $flag in
             --profile)
                 PROFILE="$2"
                 shift 2
                 ;;
-            --multi-agent-mode)
-                read MULTI_AGENT_MODE shift_count <<< "$(parse_bool_flag "$MULTI_AGENT_MODE" "$2")"
+            --claude-code-commands)
+                read CLAUDE_CODE_COMMANDS shift_count <<< "$(parse_bool_flag "$CLAUDE_CODE_COMMANDS" "$2")"
                 shift $shift_count
                 ;;
-            --multi-agent-tool)
-                MULTI_AGENT_TOOL="$2"
-                shift 2
-                ;;
-            --single-agent-mode)
-                read SINGLE_AGENT_MODE shift_count <<< "$(parse_bool_flag "$SINGLE_AGENT_MODE" "$2")"
+            --use-claude-code-subagents)
+                read USE_CLAUDE_CODE_SUBAGENTS shift_count <<< "$(parse_bool_flag "$USE_CLAUDE_CODE_SUBAGENTS" "$2")"
                 shift $shift_count
                 ;;
-            --single-agent-tool)
-                SINGLE_AGENT_TOOL="$2"
-                shift 2
+            --agent-os-commands)
+                read AGENT_OS_COMMANDS shift_count <<< "$(parse_bool_flag "$AGENT_OS_COMMANDS" "$2")"
+                shift $shift_count
+                ;;
+            --standards-as-claude-code-skills)
+                read STANDARDS_AS_CLAUDE_CODE_SKILLS shift_count <<< "$(parse_bool_flag "$STANDARDS_AS_CLAUDE_CODE_SKILLS" "$2")"
+                shift $shift_count
                 ;;
             --re-install)
                 RE_INSTALL="true"
@@ -144,19 +149,21 @@ load_configuration() {
 
     # Set effective values (command line overrides base config)
     EFFECTIVE_PROFILE="${PROFILE:-$BASE_PROFILE}"
-    EFFECTIVE_MULTI_AGENT_MODE="${MULTI_AGENT_MODE:-$BASE_MULTI_AGENT_MODE}"
-    EFFECTIVE_MULTI_AGENT_TOOL="${MULTI_AGENT_TOOL:-$BASE_MULTI_AGENT_TOOL}"
-    EFFECTIVE_SINGLE_AGENT_MODE="${SINGLE_AGENT_MODE:-$BASE_SINGLE_AGENT_MODE}"
-    EFFECTIVE_SINGLE_AGENT_TOOL="${SINGLE_AGENT_TOOL:-$BASE_SINGLE_AGENT_TOOL}"
+    EFFECTIVE_CLAUDE_CODE_COMMANDS="${CLAUDE_CODE_COMMANDS:-$BASE_CLAUDE_CODE_COMMANDS}"
+    EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS="${USE_CLAUDE_CODE_SUBAGENTS:-$BASE_USE_CLAUDE_CODE_SUBAGENTS}"
+    EFFECTIVE_AGENT_OS_COMMANDS="${AGENT_OS_COMMANDS:-$BASE_AGENT_OS_COMMANDS}"
+    EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS="${STANDARDS_AS_CLAUDE_CODE_SKILLS:-$BASE_STANDARDS_AS_CLAUDE_CODE_SKILLS}"
     EFFECTIVE_VERSION="$BASE_VERSION"
 
-    # Validate configuration using common function
-    validate_config "$EFFECTIVE_MULTI_AGENT_MODE" "$EFFECTIVE_SINGLE_AGENT_MODE" "$EFFECTIVE_PROFILE"
+    # Validate configuration using common function (may override EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS if dependency not met)
+    validate_config "$EFFECTIVE_CLAUDE_CODE_COMMANDS" "$EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS" "$EFFECTIVE_AGENT_OS_COMMANDS" "$EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS" "$EFFECTIVE_PROFILE"
 
     print_verbose "Configuration loaded:"
     print_verbose "  Profile: $EFFECTIVE_PROFILE"
-    print_verbose "  Multi-agent mode: $EFFECTIVE_MULTI_AGENT_MODE (tool: $EFFECTIVE_MULTI_AGENT_TOOL)"
-    print_verbose "  Single-agent mode: $EFFECTIVE_SINGLE_AGENT_MODE (tool: $EFFECTIVE_SINGLE_AGENT_TOOL)"
+    print_verbose "  Claude Code commands: $EFFECTIVE_CLAUDE_CODE_COMMANDS"
+    print_verbose "  Use Claude Code subagents: $EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS"
+    print_verbose "  Agent OS commands: $EFFECTIVE_AGENT_OS_COMMANDS"
+    print_verbose "  Standards as Claude Code Skills: $EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS"
 }
 
 # -----------------------------------------------------------------------------
@@ -193,61 +200,28 @@ install_standards() {
     fi
 }
 
-# Install roles files - Needed for single-agent mode
-install_roles() {
-    if [[ "$DRY_RUN" != "true" ]]; then
-        print_status "Installing roles"
-    fi
-
-    local roles_count=0
-
-    while read file; do
-        if [[ "$file" == roles/* ]]; then
-            local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
-            local dest="$PROJECT_DIR/agent-os/$file"
-
-            if [[ -f "$source" ]]; then
-                local installed_file=$(copy_file "$source" "$dest")
-                if [[ -n "$installed_file" ]]; then
-                    INSTALLED_FILES+=("$installed_file")
-                    ((roles_count++)) || true
-                fi
-            fi
-        fi
-    done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "roles")
-
-    if [[ "$DRY_RUN" != "true" ]]; then
-        if [[ $roles_count -gt 0 ]]; then
-            echo "✓ Installed $roles_count files in agent-os/roles"
-        fi
-    fi
-}
-
 # Install and compile single-agent mode commands
-install_single_agent_commands() {
+# Install Claude Code commands with delegation (multi-agent files)
+install_claude_code_commands_with_delegation() {
     if [[ "$DRY_RUN" != "true" ]]; then
-        print_status "Installing single-agent mode commands..."
+        print_status "Installing Claude Code commands (with delegation to subagents)..."
     fi
 
     local commands_count=0
+    local target_dir="$PROJECT_DIR/.claude/commands/agent-os"
+
+    mkdir -p "$target_dir"
 
     while read file; do
-        # Include files that are in single-agent folders
-        if [[ "$file" == commands/*/single-agent/* ]]; then
+        # Process multi-agent command files OR orchestrate-tasks special case
+        if [[ "$file" == commands/*/multi-agent/* ]] || [[ "$file" == commands/orchestrate-tasks/orchestrate-tasks.md ]]; then
             local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
             if [[ -f "$source" ]]; then
-                local dest=""
+                # Extract command name from path (e.g., commands/create-spec/multi-agent/create-spec.md -> create-spec)
+                local cmd_name=$(echo "$file" | cut -d'/' -f2)
+                local dest="$target_dir/${cmd_name}.md"
 
-                # If both modes are enabled, preserve the folder structure (single-agent/ and multi-agent/)
-                if [[ "$EFFECTIVE_MULTI_AGENT_MODE" == "true" ]]; then
-                    # Keep full path including single-agent subfolder
-                    dest="$PROJECT_DIR/agent-os/$file"
-                else
-                    # Only single-agent mode: strip the single-agent/ subfolder
-                    local dest_file=$(echo "$file" | sed 's/\/single-agent//')
-                    dest="$PROJECT_DIR/agent-os/$dest_file"
-                fi
-
+                # Compile with workflow and standards injection (includes conditional compilation)
                 local compiled=$(compile_command "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE")
                 if [[ "$DRY_RUN" == "true" ]]; then
                     INSTALLED_FILES+=("$dest")
@@ -257,71 +231,83 @@ install_single_agent_commands() {
         fi
     done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "commands")
 
-    # If both modes are enabled, also copy multi-agent commands to agent-os
-    if [[ "$EFFECTIVE_MULTI_AGENT_MODE" == "true" ]]; then
-        while read file; do
-            if [[ "$file" == commands/*/multi-agent/* ]]; then
-                local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
-                if [[ -f "$source" ]]; then
-                    local dest="$PROJECT_DIR/agent-os/$file"
-                    local compiled=$(compile_command "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE")
+    if [[ "$DRY_RUN" != "true" ]]; then
+        if [[ $commands_count -gt 0 ]]; then
+            echo "✓ Installed $commands_count Claude Code commands (with delegation)"
+        fi
+    fi
+}
+
+# Install Claude Code commands without delegation (single-agent files with injection)
+install_claude_code_commands_without_delegation() {
+    if [[ "$DRY_RUN" != "true" ]]; then
+        print_status "Installing Claude Code commands (without delegation)..."
+    fi
+
+    local commands_count=0
+
+    while read file; do
+        # Process single-agent command files OR orchestrate-tasks special case
+        if [[ "$file" == commands/*/single-agent/* ]] || [[ "$file" == commands/orchestrate-tasks/orchestrate-tasks.md ]]; then
+            local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
+            if [[ -f "$source" ]]; then
+                # Handle orchestrate-tasks specially (flat destination)
+                if [[ "$file" == commands/orchestrate-tasks/orchestrate-tasks.md ]]; then
+                    local dest="$PROJECT_DIR/.claude/commands/agent-os/orchestrate-tasks.md"
+                    # Compile without PHASE embedding for orchestrate-tasks
+                    local compiled=$(compile_command "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "")
                     if [[ "$DRY_RUN" == "true" ]]; then
                         INSTALLED_FILES+=("$dest")
                     fi
                     ((commands_count++)) || true
+                else
+                    # Only install non-numbered files (e.g., plan-product.md, not 1-product-concept.md)
+                    local filename=$(basename "$file")
+                    if [[ ! "$filename" =~ ^[0-9]+-.*\.md$ ]]; then
+                        # Extract command name (e.g., commands/plan-product/single-agent/plan-product.md -> plan-product.md)
+                        local cmd_name=$(echo "$file" | sed 's|commands/\([^/]*\)/single-agent/.*|\1|')
+                        local dest="$PROJECT_DIR/.claude/commands/agent-os/$cmd_name.md"
+
+                        # Compile with PHASE embedding (mode="embed")
+                        local compiled=$(compile_command "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "embed")
+                        if [[ "$DRY_RUN" == "true" ]]; then
+                            INSTALLED_FILES+=("$dest")
+                        fi
+                        ((commands_count++)) || true
+                    fi
                 fi
-            fi
-        done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "commands")
-    fi
-
-    if [[ "$DRY_RUN" != "true" ]]; then
-        if [[ $commands_count -gt 0 ]]; then
-            echo "✓ Installed $commands_count single-agent commands"
-        fi
-    fi
-}
-
-# Install and compile multi-agent mode files for Claude Code
-install_claude_code_files() {
-    if [[ "$DRY_RUN" != "true" ]]; then
-        print_status "Installing Claude Code tools"
-    fi
-
-    local commands_count=0
-    local agents_count=0
-
-    # Install commands to .claude/commands/agent-os/
-    while read file; do
-        if [[ "$file" == commands/*/multi-agent/* ]]; then
-            local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
-            if [[ -f "$source" ]]; then
-                # Extract command name from path
-                local command_name=$(echo "$file" | sed 's/commands\///' | sed 's/\/multi-agent.*//')
-                local dest="$PROJECT_DIR/.claude/commands/agent-os/${command_name}.md"
-
-                local compiled=$(compile_command "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE")
-                if [[ "$DRY_RUN" == "true" ]]; then
-                    INSTALLED_FILES+=("$dest")
-                fi
-                ((commands_count++)) || true
             fi
         fi
     done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "commands")
 
     if [[ "$DRY_RUN" != "true" ]]; then
         if [[ $commands_count -gt 0 ]]; then
-            echo "✓ Installed $commands_count Claude Code commands"
+            echo "✓ Installed $commands_count Claude Code commands (without delegation)"
         fi
     fi
+}
 
-    # Install static agents to .claude/agents/agent-os/
-    get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "agents" | while read file; do
+# Install Claude Code static agents
+install_claude_code_agents() {
+    if [[ "$DRY_RUN" != "true" ]]; then
+        print_status "Installing Claude Code agents..."
+    fi
+
+    local agents_count=0
+    local target_dir="$PROJECT_DIR/.claude/agents/agent-os"
+    
+    mkdir -p "$target_dir"
+
+    while read file; do
+        # Include all agent files (flatten structure - no subfolders in output)
         if [[ "$file" == agents/*.md ]] && [[ "$file" != agents/templates/* ]]; then
             local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
             if [[ -f "$source" ]]; then
-                local agent_name=$(basename "$file" .md)
-                local dest="$PROJECT_DIR/.claude/agents/agent-os/${agent_name}.md"
-
+                # Get just the filename (flatten directory structure)
+                local filename=$(basename "$file")
+                local dest="$target_dir/$filename"
+                
+                # Compile with workflow and standards injection
                 local compiled=$(compile_agent "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "")
                 if [[ "$DRY_RUN" == "true" ]]; then
                     INSTALLED_FILES+=("$dest")
@@ -329,132 +315,7 @@ install_claude_code_files() {
                 ((agents_count++)) || true
             fi
         fi
-    done
-
-    # Install specification agents
-    get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "agents/specification" | while read file; do
-        if [[ "$file" == agents/specification/*.md ]]; then
-            local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
-            if [[ -f "$source" ]]; then
-                local agent_name=$(basename "$file" .md)
-                local dest="$PROJECT_DIR/.claude/agents/agent-os/${agent_name}.md"
-
-                local compiled=$(compile_agent "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "")
-                if [[ "$DRY_RUN" == "true" ]]; then
-                    INSTALLED_FILES+=("$dest")
-                fi
-                ((agents_count++)) || true
-            fi
-        fi
-    done
-
-    # Generate and install implementer agents
-    local implementers_file=$(get_profile_file "$EFFECTIVE_PROFILE" "roles/implementers.yml" "$BASE_DIR")
-    if [[ -f "$implementers_file" ]]; then
-        local template_file=$(get_profile_file "$EFFECTIVE_PROFILE" "agents/templates/implementer.md" "$BASE_DIR")
-        if [[ -f "$template_file" ]]; then
-            # Get list of implementer IDs
-            local implementer_ids=$(awk '/^  - id:/ {print $3}' "$implementers_file")
-
-            for id in $implementer_ids; do
-                print_verbose "Generating implementer agent: $id"
-
-                # Build role data with delimiter-based format for multi-line values
-                local role_data=""
-                role_data="${role_data}<<<id>>>"$'\n'"$id"$'\n'"<<<END>>>"$'\n'
-
-                local description=$(parse_role_yaml "$implementers_file" "implementers" "$id" "description")
-                role_data="${role_data}<<<description>>>"$'\n'"$description"$'\n'"<<<END>>>"$'\n'
-
-                local your_role=$(parse_role_yaml "$implementers_file" "implementers" "$id" "your_role")
-                role_data="${role_data}<<<your_role>>>"$'\n'"$your_role"$'\n'"<<<END>>>"$'\n'
-
-                local tools=$(parse_role_yaml "$implementers_file" "implementers" "$id" "tools")
-                role_data="${role_data}<<<tools>>>"$'\n'"$tools"$'\n'"<<<END>>>"$'\n'
-
-                local model=$(parse_role_yaml "$implementers_file" "implementers" "$id" "model")
-                role_data="${role_data}<<<model>>>"$'\n'"$model"$'\n'"<<<END>>>"$'\n'
-
-                local color=$(parse_role_yaml "$implementers_file" "implementers" "$id" "color")
-                role_data="${role_data}<<<color>>>"$'\n'"$color"$'\n'"<<<END>>>"$'\n'
-
-                # Get areas of responsibility
-                local areas=$(parse_role_yaml "$implementers_file" "implementers" "$id" "areas_of_responsibility")
-                role_data="${role_data}<<<areas_of_responsibility>>>"$'\n'"$areas"$'\n'"<<<END>>>"$'\n'
-
-                # Get example areas outside of responsibility
-                local example_areas_outside=$(parse_role_yaml "$implementers_file" "implementers" "$id" "example_areas_outside_of_responsibility")
-                role_data="${role_data}<<<example_areas_outside_of_responsibility>>>"$'\n'"$example_areas_outside"$'\n'"<<<END>>>"$'\n'
-
-                # Get standards
-                local standards_patterns=$(get_role_standards "$implementers_file" "implementers" "$id")
-                local standards_list=$(process_standards "" "$BASE_DIR" "$EFFECTIVE_PROFILE" "$standards_patterns")
-                role_data="${role_data}<<<implementer_standards>>>"$'\n'"$standards_list"$'\n'"<<<END>>>"$'\n'
-
-                # Compile agent
-                local dest="$PROJECT_DIR/.claude/agents/agent-os/${id}.md"
-                local compiled=$(compile_agent "$template_file" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "$role_data")
-                if [[ "$DRY_RUN" == "true" ]]; then
-                    INSTALLED_FILES+=("$dest")
-                fi
-                ((agents_count++)) || true
-            done
-        fi
-    fi
-
-    # Generate and install area verifier agents
-    local verifiers_file=$(get_profile_file "$EFFECTIVE_PROFILE" "roles/verifiers.yml" "$BASE_DIR")
-    if [[ -f "$verifiers_file" ]]; then
-        local template_file=$(get_profile_file "$EFFECTIVE_PROFILE" "agents/templates/verifier.md" "$BASE_DIR")
-        if [[ -f "$template_file" ]]; then
-            # Get list of verifier IDs
-            local verifier_ids=$(awk '/^  - id:/ {print $3}' "$verifiers_file")
-
-            for id in $verifier_ids; do
-                print_verbose "Generating area verifier agent: $id"
-
-                # Build role data with delimiter-based format for multi-line values
-                local role_data=""
-                role_data="${role_data}<<<id>>>"$'\n'"$id"$'\n'"<<<END>>>"$'\n'
-
-                local description=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "description")
-                role_data="${role_data}<<<description>>>"$'\n'"$description"$'\n'"<<<END>>>"$'\n'
-
-                local your_role=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "your_role")
-                role_data="${role_data}<<<your_role>>>"$'\n'"$your_role"$'\n'"<<<END>>>"$'\n'
-
-                local tools=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "tools")
-                role_data="${role_data}<<<tools>>>"$'\n'"$tools"$'\n'"<<<END>>>"$'\n'
-
-                local model=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "model")
-                role_data="${role_data}<<<model>>>"$'\n'"$model"$'\n'"<<<END>>>"$'\n'
-
-                local color=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "color")
-                role_data="${role_data}<<<color>>>"$'\n'"$color"$'\n'"<<<END>>>"$'\n'
-
-                # Get areas of responsibility
-                local areas=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "areas_of_responsibility")
-                role_data="${role_data}<<<areas_of_responsibility>>>"$'\n'"$areas"$'\n'"<<<END>>>"$'\n'
-
-                # Get example areas outside of responsibility
-                local example_areas_outside=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "example_areas_outside_of_responsibility")
-                role_data="${role_data}<<<example_areas_outside_of_responsibility>>>"$'\n'"$example_areas_outside"$'\n'"<<<END>>>"$'\n'
-
-                # Get standards
-                local standards_patterns=$(get_role_standards "$verifiers_file" "verifiers" "$id")
-                local standards_list=$(process_standards "" "$BASE_DIR" "$EFFECTIVE_PROFILE" "$standards_patterns")
-                role_data="${role_data}<<<verifier_standards>>>"$'\n'"$standards_list"$'\n'"<<<END>>>"$'\n'
-
-                # Compile agent
-                local dest="$PROJECT_DIR/.claude/agents/agent-os/${id}.md"
-                local compiled=$(compile_agent "$template_file" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "$role_data")
-                if [[ "$DRY_RUN" == "true" ]]; then
-                    INSTALLED_FILES+=("$dest")
-                fi
-                ((agents_count++)) || true
-            done
-        fi
-    fi
+    done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "agents")
 
     if [[ "$DRY_RUN" != "true" ]]; then
         if [[ $agents_count -gt 0 ]]; then
@@ -463,6 +324,44 @@ install_claude_code_files() {
     fi
 }
 
+# Install agent-os commands (single-agent files with injection)
+install_agent_os_commands() {
+    if [[ "$DRY_RUN" != "true" ]]; then
+        print_status "Installing agent-os commands..."
+    fi
+
+    local commands_count=0
+
+    while read file; do
+        # Process single-agent command files OR orchestrate-tasks special case
+        if [[ "$file" == commands/*/single-agent/* ]] || [[ "$file" == commands/orchestrate-tasks/orchestrate-tasks.md ]]; then
+            local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
+            if [[ -f "$source" ]]; then
+                # Handle orchestrate-tasks specially (preserve folder structure)
+                if [[ "$file" == commands/orchestrate-tasks/orchestrate-tasks.md ]]; then
+                    local dest="$PROJECT_DIR/agent-os/commands/orchestrate-tasks/orchestrate-tasks.md"
+                else
+                    # Extract command name and preserve numbering
+                    local cmd_path=$(echo "$file" | sed 's|commands/\([^/]*\)/single-agent/\(.*\)|\1/\2|')
+                    local dest="$PROJECT_DIR/agent-os/commands/$cmd_path"
+                fi
+
+                # Compile with workflow and standards injection and PHASE embedding
+                local compiled=$(compile_command "$source" "$dest" "$BASE_DIR" "$EFFECTIVE_PROFILE" "embed")
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    INSTALLED_FILES+=("$dest")
+                fi
+                ((commands_count++)) || true
+            fi
+        fi
+    done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "commands")
+
+    if [[ "$DRY_RUN" != "true" ]]; then
+        if [[ $commands_count -gt 0 ]]; then
+            echo "✓ Installed $commands_count agent-os commands"
+        fi
+    fi
+}
 
 # Create agent-os folder structure
 create_agent_os_folder() {
@@ -475,8 +374,8 @@ create_agent_os_folder() {
 
     # Create the configuration file
     local config_file=$(write_project_config "$EFFECTIVE_VERSION" "$EFFECTIVE_PROFILE" \
-        "$EFFECTIVE_MULTI_AGENT_MODE" "$EFFECTIVE_MULTI_AGENT_TOOL" \
-        "$EFFECTIVE_SINGLE_AGENT_MODE" "$EFFECTIVE_SINGLE_AGENT_TOOL")
+        "$EFFECTIVE_CLAUDE_CODE_COMMANDS" "$EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS" \
+        "$EFFECTIVE_AGENT_OS_COMMANDS" "$EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS")
     if [[ "$DRY_RUN" == "true" && -n "$config_file" ]]; then
         INSTALLED_FILES+=("$config_file")
     fi
@@ -499,14 +398,10 @@ perform_installation() {
     echo ""
     print_status "Configuration:"
     echo -e "  Profile: ${YELLOW}$EFFECTIVE_PROFILE${NC}"
-    echo -e "  Multi-agent mode: ${YELLOW}$EFFECTIVE_MULTI_AGENT_MODE${NC}"
-    if [[ "$EFFECTIVE_MULTI_AGENT_MODE" == "true" ]]; then
-        echo -e "  Multi-agent tool: ${YELLOW}$EFFECTIVE_MULTI_AGENT_TOOL${NC}"
-    fi
-    echo -e "  Single-agent mode: ${YELLOW}$EFFECTIVE_SINGLE_AGENT_MODE${NC}"
-    if [[ "$EFFECTIVE_SINGLE_AGENT_MODE" == "true" ]]; then
-        echo -e "  Single-agent tool: ${YELLOW}$EFFECTIVE_SINGLE_AGENT_TOOL${NC}"
-    fi
+    echo -e "  Claude Code commands: ${YELLOW}$EFFECTIVE_CLAUDE_CODE_COMMANDS${NC}"
+    echo -e "  Use Claude Code subagents: ${YELLOW}$EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS${NC}"
+    echo -e "  Standards as Claude Code Skills: ${YELLOW}$EFFECTIVE_STANDARDS_AS_CLAUDE_CODE_SKILLS${NC}"
+    echo -e "  Agent OS commands: ${YELLOW}$EFFECTIVE_AGENT_OS_COMMANDS${NC}"
     echo ""
 
     # In dry run mode, just collect files silently
@@ -514,12 +409,22 @@ perform_installation() {
         # Collect files without output
         create_agent_os_folder
         install_standards
-        if [[ "$EFFECTIVE_SINGLE_AGENT_MODE" == "true" ]]; then
-            install_roles
-            install_single_agent_commands
+
+        # Install Claude Code files if enabled
+        if [[ "$EFFECTIVE_CLAUDE_CODE_COMMANDS" == "true" ]]; then
+            if [[ "$EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS" == "true" ]]; then
+                install_claude_code_commands_with_delegation
+                install_claude_code_agents
+            else
+                install_claude_code_commands_without_delegation
+            fi
+            install_claude_code_skills
+            install_improve_skills_command
         fi
-        if [[ "$EFFECTIVE_MULTI_AGENT_MODE" == "true" ]] && [[ "$EFFECTIVE_MULTI_AGENT_TOOL" == "claude-code" ]]; then
-            install_claude_code_files
+
+        # Install agent-os commands if enabled
+        if [[ "$EFFECTIVE_AGENT_OS_COMMANDS" == "true" ]]; then
+            install_agent_os_commands
         fi
 
         echo ""
@@ -537,15 +442,25 @@ perform_installation() {
         install_standards
         echo ""
 
-        if [[ "$EFFECTIVE_SINGLE_AGENT_MODE" == "true" ]]; then
-            install_roles
-            echo ""
-            install_single_agent_commands
+        # Install Claude Code files if enabled
+        if [[ "$EFFECTIVE_CLAUDE_CODE_COMMANDS" == "true" ]]; then
+            if [[ "$EFFECTIVE_USE_CLAUDE_CODE_SUBAGENTS" == "true" ]]; then
+                install_claude_code_commands_with_delegation
+                echo ""
+                install_claude_code_agents
+                echo ""
+            else
+                install_claude_code_commands_without_delegation
+                echo ""
+            fi
+            install_claude_code_skills
+            install_improve_skills_command
             echo ""
         fi
 
-        if [[ "$EFFECTIVE_MULTI_AGENT_MODE" == "true" ]] && [[ "$EFFECTIVE_MULTI_AGENT_TOOL" == "claude-code" ]]; then
-            install_claude_code_files
+        # Install agent-os commands if enabled
+        if [[ "$EFFECTIVE_AGENT_OS_COMMANDS" == "true" ]]; then
+            install_agent_os_commands
             echo ""
         fi
     fi
